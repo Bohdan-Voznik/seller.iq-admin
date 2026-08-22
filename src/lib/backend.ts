@@ -2,8 +2,18 @@
 // auth-provider.server), никогда в клиентском бандле. Сам URL не секрет,
 // секрет — JWT из /user/login, который сюда не попадает: он живёт только в
 // httpOnly cookie SESSION_COOKIE, выставленной в app/api/session/login.
+//
+// Тот же конфиг API_ENV, что и в rztk_app (src/services/API/api.js) — три
+// именованных окружения бэка вместо голого URL в env, чтобы не разъезжаться
+// с тем, как это задокументировано и настроено в приложении.
+const BACKEND_CONFIG = {
+  localhost: 'http://127.0.0.1:3006',
+  development: 'https://rztk-backend-dev.onrender.com',
+  production: 'https://rztk-backend-prod.onrender.com',
+} as const;
+
 export const BACKEND_API_URL =
-  process.env.BACKEND_API_URL || 'http://127.0.0.1:3006';
+  BACKEND_CONFIG[process.env.API_ENV as keyof typeof BACKEND_CONFIG] || BACKEND_CONFIG.production;
 
 export const SESSION_COOKIE = 'admin_session';
 
