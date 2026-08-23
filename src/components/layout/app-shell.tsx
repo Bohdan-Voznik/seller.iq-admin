@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, type PropsWithChildren } from 'react';
+import { useState, type PropsWithChildren } from 'react';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, CreditCard, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, LineChart, Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/layout/logo';
@@ -14,6 +14,9 @@ function NavLinks() {
     <nav className="flex flex-1 flex-col gap-0.5">
       <NavLink href="/" icon={<LayoutDashboard />}>
         Главная
+      </NavLink>
+      <NavLink href="/analytics" icon={<LineChart />}>
+        Аналитика
       </NavLink>
       <NavLink href="/users" icon={<Users />}>
         Пользователи
@@ -30,10 +33,15 @@ export function AppShell({ children }: PropsWithChildren) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const pathname = usePathname();
 
-  // Закрываем мобильное меню при переходе на другую страницу.
-  useEffect(() => {
+  // Закрываем мобильное меню при переходе на другую страницу — сравнение с
+  // предыдущим pathname прямо в рендере (react-compiler ругается на
+  // setState внутри useEffect), паттерн из доки React "adjusting state when
+  // a prop changes".
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
     setMobileNavOpen(false);
-  }, [pathname]);
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col md:flex-row">
