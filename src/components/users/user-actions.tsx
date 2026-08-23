@@ -55,12 +55,12 @@ function ActionRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-border py-2.5 last:border-0 last:pb-0">
+    <div className="flex flex-col gap-2 border-b border-border py-2.5 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
       <div>
         <div className="text-[12.5px] font-medium">{title}</div>
         <div className="text-[11px] text-muted-foreground">{desc}</div>
       </div>
-      <div className="flex shrink-0 items-center gap-2">{children}</div>
+      <div className="flex flex-wrap items-center gap-2 sm:shrink-0">{children}</div>
     </div>
   );
 }

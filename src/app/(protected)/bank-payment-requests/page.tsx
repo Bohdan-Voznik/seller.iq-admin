@@ -108,9 +108,9 @@ export default function BankPaymentRequestsPage() {
         </p>
       </div>
 
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <Select value={status} onValueChange={onStatusChange}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-full sm:w-44">
             <SelectValue placeholder="Статус" />
           </SelectTrigger>
           <SelectContent>
@@ -122,7 +122,7 @@ export default function BankPaymentRequestsPage() {
           </SelectContent>
         </Select>
         <div className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
-          <span className="size-2.5 rounded-sm border border-border bg-amber-row" />
+          <span className="size-2.5 shrink-0 rounded-sm border border-border bg-amber-row" />
           ожидает дольше {STUCK_AFTER_HOURS} часов
         </div>
       </div>

@@ -126,7 +126,7 @@ export default function UserShowPage({ params }: { params: Promise<{ id: string 
         ID {detail.user.id} · зарегистрирован {formatDate(detail.user.createdAt)}
       </p>
 
-      <div className="grid grid-cols-[min(450px,50%)_minmax(0,1fr)] items-start gap-4">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[min(450px,50%)_minmax(0,1fr)]">
         <div className="space-y-4">
           <Card>
             <CardHeader>
@@ -217,30 +217,32 @@ export default function UserShowPage({ params }: { params: Promise<{ id: string 
               {detail.payments.length === 0 ? (
                 <p className="text-[12.5px] text-muted-foreground">Платежей ещё не было.</p>
               ) : (
-                <table className="w-full text-[12px]">
-                  <thead>
-                    <tr className="text-left text-[11px] font-medium text-muted-foreground">
-                      <th className="pb-2 font-medium">Дата</th>
-                      <th className="pb-2 font-medium">План</th>
-                      <th className="pb-2 font-medium">Сумма</th>
-                      <th className="pb-2 font-medium">Статус</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detail.payments.slice(0, 6).map((payment) => (
-                      <tr key={payment.id} className="border-t border-border">
-                        <td className="py-1.5">{formatDate(payment.createdAt)}</td>
-                        <td className="py-1.5">{payment.label}</td>
-                        <td className="py-1.5">
-                          {payment.amount} {payment.currency}
-                        </td>
-                        <td className="py-1.5">
-                          <StatusBadge status={payment.status} />
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[12px]">
+                    <thead>
+                      <tr className="text-left text-[11px] font-medium text-muted-foreground">
+                        <th className="pb-2 pr-3 font-medium">Дата</th>
+                        <th className="pb-2 pr-3 font-medium">План</th>
+                        <th className="pb-2 pr-3 font-medium">Сумма</th>
+                        <th className="pb-2 font-medium">Статус</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {detail.payments.slice(0, 6).map((payment) => (
+                        <tr key={payment.id} className="border-t border-border">
+                          <td className="whitespace-nowrap py-1.5 pr-3">{formatDate(payment.createdAt)}</td>
+                          <td className="whitespace-nowrap py-1.5 pr-3">{payment.label}</td>
+                          <td className="whitespace-nowrap py-1.5 pr-3">
+                            {payment.amount} {payment.currency}
+                          </td>
+                          <td className="whitespace-nowrap py-1.5">
+                            <StatusBadge status={payment.status} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </CardContent>
           </Card>

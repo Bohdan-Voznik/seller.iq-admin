@@ -100,8 +100,8 @@ export default function UsersListPage() {
         <p className="mt-0.5 text-[12.5px] text-muted-foreground">{total} учётных записей</p>
       </div>
 
-      <div className="mb-4 flex items-center gap-2">
-        <div className="relative w-70">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative w-full sm:w-70">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Поиск по имени…"
@@ -111,7 +111,7 @@ export default function UsersListPage() {
             className="pl-8"
           />
         </div>
-        <Button variant="secondary" onClick={applySearch}>
+        <Button variant="secondary" onClick={applySearch} className="shrink-0">
           Найти
         </Button>
       </div>
