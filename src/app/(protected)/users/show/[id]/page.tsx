@@ -49,7 +49,6 @@ type UserDetail = {
     createdAt: string;
     mixpanelToken: string | null;
     mixpanelProjectId: string | null;
-    salesDriveApiKey: string | null;
   };
   currentSubscription: CurrentSubscription | null;
   addons: Addon[];
@@ -58,6 +57,7 @@ type UserDetail = {
   payments: Payment[];
   rozetkaCabinets: RozetkaCabinet[];
   telegramSettings: TelegramSettings;
+  crmAccounts: CrmAccount[];
 };
 
 type RozetkaCabinet = {
@@ -68,6 +68,16 @@ type RozetkaCabinet = {
   marketTitle: string | null;
 };
 type TelegramSettings = { telegramChatId: string | null; enabled: boolean } | null;
+// provider — по факту 'salesdrive' | 'keycrm', но бэк может добавить новый
+// провайдер, не ломая эту страницу — держим строкой, не union.
+type CrmAccount = {
+  id: number;
+  provider: string;
+  label: string | null;
+  isActive: boolean;
+  lastSyncAt: string | null;
+  nextRunAt: string | null;
+};
 
 function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleString('ru-RU') : '—';
@@ -104,7 +114,7 @@ export default function UserShowPage({ params }: { params: Promise<{ id: string 
     return <p className="text-muted-foreground">Пользователь не найден.</p>;
   }
 
-  const salesDriveConnected = !!detail.user.salesDriveApiKey;
+  const crmConnected = detail.crmAccounts.some((a) => a.isActive);
   const mixpanelConnected = !!(detail.user.mixpanelToken || detail.user.mixpanelProjectId);
   const rozetkaConnected = detail.rozetkaCabinets.some((c) => c.isValid && c.isEnabled);
   const telegramConnected = !!(detail.telegramSettings?.enabled && detail.telegramSettings?.telegramChatId);
@@ -168,8 +178,8 @@ export default function UserShowPage({ params }: { params: Promise<{ id: string 
             </CardHeader>
             <CardContent className="space-y-2 text-[12.5px]">
               <div className="flex items-center justify-between border-b border-border pb-2">
-                <span>SalesDrive</span>
-                <ConnectionStatusBadge connected={salesDriveConnected} />
+                <span>CRM{detail.crmAccounts.length > 1 ? ` (${detail.crmAccounts.length})` : ''}</span>
+                <ConnectionStatusBadge connected={crmConnected} />
               </div>
               <div className="flex items-center justify-between border-b border-border pb-2">
                 <span>Mixpanel</span>
@@ -263,7 +273,7 @@ export default function UserShowPage({ params }: { params: Promise<{ id: string 
               <CardTitle>Действия</CardTitle>
             </CardHeader>
             <CardContent>
-              <UserActions userId={userId} rozetkaCabinets={detail.rozetkaCabinets} />
+              <UserActions userId={userId} rozetkaCabinets={detail.rozetkaCabinets} crmAccounts={detail.crmAccounts} />
             </CardContent>
           </Card>
         </div>

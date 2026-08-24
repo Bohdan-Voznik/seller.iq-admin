@@ -19,11 +19,26 @@ import { ConfirmActionButton } from '@/components/confirm-action-button';
 type PlanOption = { key: string; label: string };
 type AddonOption = { key: string; label: string };
 type RozetkaCabinet = { id: number; name: string | null; marketTitle: string | null };
+// provider — по факту 'salesdrive' | 'keycrm', держим строкой на случай нового
+// провайдера на бэке (см. common/crmAccountModel в rztk_backend)
+type CrmAccount = { id: number; provider: string; label: string | null; isActive: boolean };
 
 const ALL_CABINETS = 'all';
 
 function cabinetLabel(cabinet: RozetkaCabinet) {
   return cabinet.marketTitle || cabinet.name || `Кабинет #${cabinet.id}`;
+}
+
+function crmProviderLabel(provider: string) {
+  if (provider === 'salesdrive') return 'SalesDrive';
+  if (provider === 'keycrm') return 'KeyCRM';
+  return provider;
+}
+
+function crmAccountLabel(account: CrmAccount) {
+  const name = account.label || `#${account.id}`;
+  const suffix = account.isActive ? '' : ' (отключён)';
+  return `${crmProviderLabel(account.provider)} — ${name}${suffix}`;
 }
 
 // datetime-local отдаёт "YYYY-MM-DDTHH:mm" целиком при каждом изменении —
@@ -73,8 +88,17 @@ function GroupLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function UserActions({ userId, rozetkaCabinets }: { userId: number; rozetkaCabinets: RozetkaCabinet[] }) {
+export function UserActions({
+  userId,
+  rozetkaCabinets,
+  crmAccounts,
+}: {
+  userId: number;
+  rozetkaCabinets: RozetkaCabinet[];
+  crmAccounts: CrmAccount[];
+}) {
   const hasCabinets = rozetkaCabinets.length > 0;
+  const hasCrmAccounts = crmAccounts.length > 0;
   const invalidate = useInvalidate();
   const refresh = () => invalidate({ resource: 'users', invalidates: ['detail'], id: userId });
 
@@ -90,16 +114,21 @@ export function UserActions({ userId, rozetkaCabinets }: { userId: number; rozet
   const [months, setMonths] = useState('1');
   const [addonKey, setAddonKey] = useState('');
   const [cabinetId, setCabinetId] = useState(ALL_CABINETS);
-  const [salesDriveFrom, setSalesDriveFrom] = useState(() => todayAt('00:00'));
-  const [salesDriveTo, setSalesDriveTo] = useState(() => todayAt('23:59'));
+  // Дефолт — первый аккаунт юзера, если он есть; выбор не привязан к "all",
+  // в отличие от Rozetka-кабинетов — синк за период всегда идёт по ОДНОМУ
+  // конкретному crm_accounts.id (см. controllers/admin/crmAccountOrderSync.js
+  // в rztk_backend — там нет понятия "все CRM-аккаунты сразу").
+  const [crmAccountId, setCrmAccountId] = useState(() => (crmAccounts[0] ? String(crmAccounts[0].id) : ''));
+  const [crmDateFrom, setCrmDateFrom] = useState(() => todayAt('00:00'));
+  const [crmDateTo, setCrmDateTo] = useState(() => todayAt('23:59'));
   const [loginCode, setLoginCode] = useState<string | null>(null);
 
   const { mutate: grantSubscription, mutation: grantSubscriptionMutation } = useCustomMutation();
   const { mutate: grantAddon, mutation: grantAddonMutation } = useCustomMutation();
   const { mutate: syncCabinet, mutation } = useCustomMutation();
   const { mutate: scanPositions, mutation: scanPositionsMutation } = useCustomMutation();
-  const { mutate: syncSalesDrive, mutation: syncSalesDriveMutation } = useCustomMutation();
-  const { mutate: syncSalesDriveRange, mutation: syncSalesDriveRangeMutation } = useCustomMutation();
+  const { mutate: syncCrmAccountNow, mutation: syncCrmAccountNowMutation } = useCustomMutation();
+  const { mutate: syncCrmAccountRange, mutation: syncCrmAccountRangeMutation } = useCustomMutation();
   const { mutate: generateLoginCode, mutation: generateLoginCodeMutation } = useCustomMutation();
   const { mutate: logoutEverywhere, mutation: logoutEverywhereMutation } = useCustomMutation();
 
@@ -163,9 +192,10 @@ export function UserActions({ userId, rozetkaCabinets }: { userId: number; rozet
     );
   };
 
-  const onSyncSalesDrive = () => {
-    syncSalesDrive(
-      { url: '/admin/user/salesdrive/sync', method: 'post', values: { userId } },
+  const onSyncCrmAccount = () => {
+    if (!crmAccountId) return;
+    syncCrmAccountNow(
+      { url: '/admin/crm-account/sync', method: 'post', values: { crmAccountId: Number(crmAccountId) } },
       {
         onSuccess: () => toast.success('Синк поставлен в очередь — подхватит ближайший тик автосинка'),
         onError: (err) => toast.error(err.message || 'Не удалось поставить в очередь'),
@@ -174,19 +204,22 @@ export function UserActions({ userId, rozetkaCabinets }: { userId: number; rozet
   };
 
   // datetime-local отдаёт "YYYY-MM-DDTHH:mm" (без секунд) — бэку нужен формат
-  // "YYYY-MM-DD HH:mm:ss" (см. assertSdDateTime в salesdriveOrderSync.js).
-  const toSdDateTime = (value: string) => (value ? `${value.replace('T', ' ')}:00` : '');
+  // "YYYY-MM-DD HH:mm:ss" (см. controllers/admin/crmAccountOrderSync.js).
+  // Часовой пояс, в котором бэк это трактует, зависит от provider выбранного
+  // аккаунта (SalesDrive — киевское, KeyCRM — UTC) — сам бэк это решает по
+  // crmAccountId, тут просто передаём строку как есть.
+  const toCrmDateTime = (value: string) => (value ? `${value.replace('T', ' ')}:00` : '');
 
-  const onSyncSalesDriveRange = () => {
-    if (!salesDriveFrom || !salesDriveTo) return;
-    syncSalesDriveRange(
+  const onSyncCrmAccountRange = () => {
+    if (!crmAccountId || !crmDateFrom || !crmDateTo) return;
+    syncCrmAccountRange(
       {
-        url: '/admin/orders',
+        url: '/admin/crm-account/orders',
         method: 'post',
         values: {
-          userId,
-          updateAtFrom: toSdDateTime(salesDriveFrom),
-          updateAtTo: toSdDateTime(salesDriveTo),
+          crmAccountId: Number(crmAccountId),
+          dateFrom: toCrmDateTime(crmDateFrom),
+          dateTo: toCrmDateTime(crmDateTo),
         },
       },
       {
@@ -300,36 +333,56 @@ export function UserActions({ userId, rozetkaCabinets }: { userId: number; rozet
         />
       </ActionRow>
 
-      <GroupLabel>SalesDrive</GroupLabel>
-      <ActionRow title="Синхронизация SalesDrive" desc="Поставить синк заказов этого юзера в очередь на ближайший тик">
+      <GroupLabel>CRM</GroupLabel>
+      <ActionRow
+        title="Аккаунт"
+        desc={hasCrmAccounts ? 'CRM-аккаунт, с которым работают действия ниже' : 'У пользователя нет ни одного подключённого CRM-аккаунта'}
+      >
+        <Select value={crmAccountId} onValueChange={setCrmAccountId} disabled={!hasCrmAccounts}>
+          <SelectTrigger className="w-56">
+            <SelectValue placeholder="CRM-аккаунт" />
+          </SelectTrigger>
+          <SelectContent>
+            {crmAccounts.map((account) => (
+              <SelectItem key={account.id} value={String(account.id)}>
+                {crmAccountLabel(account)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </ActionRow>
+      <ActionRow title="Синхронизация" desc="Поставить синк заказов выбранного CRM-аккаунта в очередь на ближайший тик">
         <ConfirmActionButton
           label="Запустить"
-          confirmDescription="Откатит время следующего синка на «сейчас» для этого пользователя — сам синк выполнит ближайший тик автосинка, не прямо сейчас."
-          pending={syncSalesDriveMutation.isPending}
-          onConfirm={onSyncSalesDrive}
+          confirmDescription={`Откатит время следующего синка на «сейчас» для аккаунта «${
+            crmAccounts.find((a) => String(a.id) === crmAccountId) ? crmAccountLabel(crmAccounts.find((a) => String(a.id) === crmAccountId)!) : crmAccountId
+          }» — сам синк выполнит ближайший тик автосинка, не прямо сейчас.`}
+          pending={syncCrmAccountNowMutation.isPending}
+          disabled={!crmAccountId}
+          onConfirm={onSyncCrmAccount}
         />
       </ActionRow>
-      <ActionRow title="Синхронизация за период" desc="Ручной синк заказов за диапазон дат">
+      <ActionRow title="Синхронизация за период" desc="Ручной синк заказов выбранного CRM-аккаунта за диапазон дат">
         <Label className="sr-only">С</Label>
         <Input
           type="datetime-local"
-          value={salesDriveFrom}
-          onChange={(e) => setSalesDriveFrom((prev) => withDefaultTime(e.target.value, prev, '00:00'))}
+          value={crmDateFrom}
+          onChange={(e) => setCrmDateFrom((prev) => withDefaultTime(e.target.value, prev, '00:00'))}
           className="w-44"
         />
         <Label className="sr-only">По</Label>
         <Input
           type="datetime-local"
-          value={salesDriveTo}
-          onChange={(e) => setSalesDriveTo((prev) => withDefaultTime(e.target.value, prev, '23:59'))}
+          value={crmDateTo}
+          onChange={(e) => setCrmDateTo((prev) => withDefaultTime(e.target.value, prev, '23:59'))}
           className="w-44"
         />
         <ConfirmActionButton
           label="Синхронизировать"
-          confirmDescription="Синхронизирует заказы SalesDrive этого пользователя за указанный диапазон прямо сейчас (не через тик). Слишком большой диапазон бэк отклонит с подсказкой по безопасному размеру."
-          pending={syncSalesDriveRangeMutation.isPending}
-          disabled={!salesDriveFrom || !salesDriveTo}
-          onConfirm={onSyncSalesDriveRange}
+          confirmDescription="Синхронизирует заказы выбранного CRM-аккаунта за указанный диапазон прямо сейчас (не через тик). Диапазон трактуется в киевском времени для SalesDrive и в UTC для KeyCRM. Слишком большой диапазон бэк отклонит с подсказкой по безопасному размеру (только SalesDrive)."
+          pending={syncCrmAccountRangeMutation.isPending}
+          disabled={!crmAccountId || !crmDateFrom || !crmDateTo}
+          onConfirm={onSyncCrmAccountRange}
         />
       </ActionRow>
 

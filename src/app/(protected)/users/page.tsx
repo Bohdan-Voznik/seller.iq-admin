@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PlanBadge, StatusBadge } from '@/components/users/badges';
+import { CreateUserDialog } from '@/components/users/create-user-dialog';
 import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 
 type UserRow = {
@@ -114,6 +115,9 @@ export default function UsersListPage() {
         <Button variant="secondary" onClick={applySearch} className="shrink-0">
           Найти
         </Button>
+        <div className="sm:ml-auto">
+          <CreateUserDialog />
+        </div>
       </div>
 
       <DataTable
