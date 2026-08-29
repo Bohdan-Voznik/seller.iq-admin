@@ -12,8 +12,10 @@ const BACKEND_CONFIG = {
   production: 'https://rztk-backend-prod.onrender.com',
 } as const;
 
-export const BACKEND_API_URL =
-  BACKEND_CONFIG[process.env.API_ENV as keyof typeof BACKEND_CONFIG] || BACKEND_CONFIG.production;
+export const BACKEND_API_URL = 'https://rztk-backend-dev.onrender.com'
+
+// export const BACKEND_API_URL =
+//   BACKEND_CONFIG[process.env.API_ENV as keyof typeof BACKEND_CONFIG] || BACKEND_CONFIG.production;
 
 export const SESSION_COOKIE = 'admin_session';
 

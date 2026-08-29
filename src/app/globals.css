@@ -160,3 +160,15 @@
     @apply font-sans;
   }
 }
+
+/* Подсветка совпадений поиска в JsonSearchDialog (CSS Custom Highlight API) —
+   не layer-ится, чтобы не зависеть от порядка @layer относительно Tailwind. */
+::highlight(json-search-match) {
+  background-color: var(--amber-bg);
+  color: var(--amber-fg);
+}
+
+::highlight(json-search-current) {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}

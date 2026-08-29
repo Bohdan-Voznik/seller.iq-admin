@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ConfirmActionButton } from '@/components/confirm-action-button';
+import { JsonSearchDialog } from '@/components/json-search-dialog';
 
 type PlanOption = { key: string; label: string };
 type AddonOption = { key: string; label: string };
@@ -121,7 +122,9 @@ export function UserActions({
   const [crmAccountId, setCrmAccountId] = useState(() => (crmAccounts[0] ? String(crmAccounts[0].id) : ''));
   const [crmDateFrom, setCrmDateFrom] = useState(() => todayAt('00:00'));
   const [crmDateTo, setCrmDateTo] = useState(() => todayAt('23:59'));
+  const [crmOrderId, setCrmOrderId] = useState('');
   const [loginCode, setLoginCode] = useState<string | null>(null);
+  const [crmSyncResult, setCrmSyncResult] = useState<Record<string, unknown> | null>(null);
 
   const { mutate: grantSubscription, mutation: grantSubscriptionMutation } = useCustomMutation();
   const { mutate: grantAddon, mutation: grantAddonMutation } = useCustomMutation();
@@ -129,6 +132,7 @@ export function UserActions({
   const { mutate: scanPositions, mutation: scanPositionsMutation } = useCustomMutation();
   const { mutate: syncCrmAccountNow, mutation: syncCrmAccountNowMutation } = useCustomMutation();
   const { mutate: syncCrmAccountRange, mutation: syncCrmAccountRangeMutation } = useCustomMutation();
+  const { mutate: syncCrmOrder, mutation: syncCrmOrderMutation } = useCustomMutation();
   const { mutate: generateLoginCode, mutation: generateLoginCodeMutation } = useCustomMutation();
   const { mutate: logoutEverywhere, mutation: logoutEverywhereMutation } = useCustomMutation();
 
@@ -224,12 +228,44 @@ export function UserActions({
       },
       {
         onSuccess: (data) => {
-          const sentItems = (data?.data as { sent_items?: number } | undefined)?.sent_items;
+          const payload = (data?.data as Record<string, unknown> | undefined) ?? null;
+          const sentItems = payload?.sent_items;
           toast.success(
             `Синхронизация за период выполнена${typeof sentItems === 'number' ? ` — отправлено позиций: ${sentItems}` : ''}`,
           );
+          setCrmSyncResult(payload);
         },
         onError: (err) => toast.error(err.message || 'Не удалось синхронизировать за период'),
+      },
+    );
+  };
+
+  // Точечный синк одного заказа по его CRM id (order_internal_id) — тот же эндпоинт, что и
+  // синк за период, но {crmAccountId, orderId} вместо диапазона дат (см.
+  // controllers/admin/crmAccountOrderSync.js в rztk_backend). Для этого режима бэк игнорирует
+  // тарифное 'closed'-ограничение — раз админ целится в конкретный заказ явно, он должен его
+  // получить, а не молча пропустить.
+  const onSyncCrmOrder = () => {
+    if (!crmAccountId || !crmOrderId.trim()) return;
+    syncCrmOrder(
+      {
+        url: '/admin/crm-account/orders',
+        method: 'post',
+        values: {
+          crmAccountId: Number(crmAccountId),
+          orderId: crmOrderId.trim(),
+        },
+      },
+      {
+        onSuccess: (data) => {
+          const payload = (data?.data as Record<string, unknown> | undefined) ?? null;
+          const sentItems = payload?.sent_items;
+          toast.success(
+            `Заказ синхронизирован${typeof sentItems === 'number' ? ` — отправлено позиций: ${sentItems}` : ''}`,
+          );
+          setCrmSyncResult(payload);
+        },
+        onError: (err) => toast.error(err.message || 'Не удалось синхронизировать заказ'),
       },
     );
   };
@@ -385,6 +421,24 @@ export function UserActions({
           onConfirm={onSyncCrmAccountRange}
         />
       </ActionRow>
+      <ActionRow title="Синхронизация по ID заказа" desc="Точечный ручной синк одного заказа выбранного CRM-аккаунта по его номеру">
+        <Label className="sr-only">ID заказа</Label>
+        <Input
+          type="text"
+          inputMode="numeric"
+          placeholder="ID заказа в CRM"
+          value={crmOrderId}
+          onChange={(e) => setCrmOrderId(e.target.value)}
+          className="w-44"
+        />
+        <ConfirmActionButton
+          label="Синхронизировать"
+          confirmDescription="Синхронизирует ОДИН конкретный заказ выбранного CRM-аккаунта по его номеру в CRM прямо сейчас, независимо от тарифного ограничения «только закрытые заказы» — точечная проверка/починка одного заказа, не диапазон."
+          pending={syncCrmOrderMutation.isPending}
+          disabled={!crmAccountId || !crmOrderId.trim()}
+          onConfirm={onSyncCrmOrder}
+        />
+      </ActionRow>
 
       <GroupLabel>Rozetka Cabinet</GroupLabel>
       <ActionRow
@@ -442,6 +496,14 @@ export function UserActions({
           onConfirm={onLogoutEverywhere}
         />
       </ActionRow>
+
+      <JsonSearchDialog
+        open={crmSyncResult !== null}
+        onOpenChange={(next) => !next && setCrmSyncResult(null)}
+        title="Результат синхронизации CRM"
+        description="Полный ответ бэка — reconciliationDetails.toUpsert/toRemove содержит позиции, которые реально отправились в Mixpanel. Найдите нужный заказ поиском ниже, чтобы проверить, что он обновился."
+        data={crmSyncResult}
+      />
     </div>
   );
 }
